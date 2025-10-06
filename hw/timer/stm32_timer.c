@@ -132,13 +132,13 @@ static void stm32_timer_freq(Stm32Timer *s)
 static uint32_t stm32_timer_get_count(Stm32Timer *s)
 {
     uint64_t cnt = ptimer_get_count(s->timer);
-    if (s->countMode == TIMER_UP_COUNT) return s->arr - (cnt & 0xFFFFf);
+    if (s->countMode == TIMER_UP_COUNT) return s->arr+1 - (cnt & 0xFFFFf);
     else                                return (cnt & 0xFFFF);
 }
 
 static void stm32_timer_set_count(Stm32Timer *s, uint32_t cnt)
 {
-    if (s->countMode == TIMER_UP_COUNT) ptimer_set_count( s->timer, s->arr - (cnt & 0xFFFFf));
+    if (s->countMode == TIMER_UP_COUNT) ptimer_set_count( s->timer, s->arr+1 - (cnt & 0xFFFFf));
     else                                ptimer_set_count( s->timer, cnt & 0xFFFF);
 }
 
@@ -193,18 +193,18 @@ static void stm32_timer_tick(void *opaque) // overflow
     Stm32Timer *s = (Stm32Timer *)opaque;
     DPRINTF("%s Alarm raised\n", stm32_periph_name(s->periph));
 
-    //static uint64_t lastTime=0;
-    //uint64_t qemuTime_ns = qemu_clock_get_ns( QEMU_CLOCK_VIRTUAL ); // ns
-    //printf("%s overflow at %lu ns\n", stm32_periph_name(s->periph), qemuTime_ns - lastTime);
-    //printf("%lu\n", qemuTime_ns - lastTime);
-    //printf("%i\n", s->arr);
-    //lastTime = qemuTime_ns;
+    static uint64_t lastTime=0;
+    uint64_t qemuTime_ns = qemu_clock_get_ns( QEMU_CLOCK_VIRTUAL ); // ns
+    printf("%s overflow at %llu nsn\n", stm32_periph_name(s->periph), qemuTime_ns - lastTime);
+   // printf("%llun\n", qemuTime_ns - lastTime);
+    printf("arr:%i\n", s->arr);
+    lastTime = qemuTime_ns;
 
     s->itr = 1;
     stm32_timer_update_UIF(s, 1);
 
     if( s->countMode == TIMER_UP_COUNT ) stm32_timer_set_count( s, 0);
-    else                                 stm32_timer_set_count( s, s->arr);
+    else                                 stm32_timer_set_count( s, s->arr+1);
 
     if (s->cr1 & 0x0060) /* CMS */
     {
@@ -281,7 +281,7 @@ static void stm32_timer_write(void * opaque, hwaddr offset, uint64_t value, unsi
         if (value & 0x1) {
              /* UG bit - reload count */
             ptimer_transaction_begin(s->timer);
-            ptimer_set_limit(s->timer, s->arr, 1);
+            ptimer_set_limit(s->timer, s->arr+1, 1);
             ptimer_transaction_commit(s->timer);
         }
         break;
@@ -309,7 +309,7 @@ static void stm32_timer_write(void * opaque, hwaddr offset, uint64_t value, unsi
     case TIMER_ARR_OFFSET:
         s->arr = value & 0xFFFF; DPRINTF("%s arr = %x\n", stm32_periph_name(s->periph), s->arr);
         ptimer_transaction_begin(s->timer);
-        ptimer_set_limit(s->timer, s->arr, 1);
+        ptimer_set_limit(s->timer, s->arr+1, 1);
         ptimer_transaction_commit(s->timer);
         //clk_freq = 2 * stm32_rcc_get_periph_freq(s->stm32_rcc, s->periph) / ((s->psc + 1)*(s->arr + 1));
         /// Set PWM freq: qemu_set_irq( s->sync_irq[0], (0xD00000| ((clk_freq & 0x3FFFF )<<2)));
