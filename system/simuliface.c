@@ -42,6 +42,13 @@ uint64_t m_ClkPeriod;
 
 QEMUTimer* qtimer;
 
+uint64_t simul_sysclk_frequency = 24000000ULL;//24MHz
+
+uint64_t get_simul_sysclk_frequency(void)
+{
+    return simul_sysclk_frequency;
+}
+
 uint64_t getQemu_ps(void)
 {
     uint64_t qemuTime = qemu_clock_get_ns( QEMU_CLOCK_VIRTUAL ); // ns
@@ -79,11 +86,14 @@ int simuMain( int argc, char** argv )
     const int   shMemSize = sizeof( qemuArena_t );
     const char* shMemKey;
 
-    if( argc > 2 ) // Check if there are any arguments
+
+    if( argc > 3 ) // Check if there are any arguments
     {
         shMemKey = argv[1];
-        argv = &argv[2];
-        argc -= 2;
+        const char *freq_str = argv[2];
+        simul_sysclk_frequency=strtoull(freq_str, NULL, 10);
+        argv = &argv[3];
+        argc -= 3;
     } else {
         printf("Qemu Error: No arguments provided.\n");
         return 1;

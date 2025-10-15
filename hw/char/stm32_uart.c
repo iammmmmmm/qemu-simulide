@@ -104,6 +104,9 @@ struct Stm32Uart {
 
   bool curr_irq_level;
   int id;
+    // --- 从旧版移植的内容 ---
+    CharBackend chr;         // 用于连接 QEMU 字符设备前端
+    uint32_t afio_board_map; // 用于检查 AFIO 映射
 };
 
 static void stm32_uart_baud_update( Stm32Uart *s ) // Update the baud rate based on the USART's peripheral clock frequency.
@@ -213,47 +216,70 @@ static void stm32_uart_tx_dma_timer_expire( void *opaque ) /* DMA tx delay */
     }
 }
 
-void stm32_uart_receive( void *opaque, const uint8_t *buf, int size );
+int stm32_uart_can_receive(void *opaque);
+void stm32_uart_receive(void *opaque, const uint8_t *buf, int size);
+uint32_t stm32_uart_baud_rate(void *opaque);
+static void stm32_uart_event(void *opaque, QEMUChrEvent event);
+int stm32_uart_can_receive(void *opaque) {
+   //FIXME Pretend it always works😆
+    return 1;
+}
+static void stm32_uart_event(void *opaque, QEMUChrEvent event) {
+    // DPRINTF("Event: %d\n", event);
+}
+// extern GMainContext *g_main_context_default_l;
+void stm32_uart_connect(Stm32Uart *s, Chardev *chr) {
+
+    if (chr) {
+        printf("Chardev context address: %p\n", (void *)g_main_context_default);
+        qemu_chr_fe_init(&s->chr, chr, &error_abort);
+        qemu_chr_fe_set_handlers(&s->chr, stm32_uart_can_receive,
+                                 stm32_uart_receive, stm32_uart_event, NULL,
+                                 (void *)s, g_main_context_default(), true);
+        printf("stm32_uart_connect\n");
+    }
+}
 
 void stm32_uart_receive( void *opaque, const uint8_t *buf, int size )
 {
-    //Stm32Uart *s = (Stm32Uart *)opaque;
-    //uint64_t curr_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    Stm32Uart *s = (Stm32Uart *)opaque;
+    uint64_t curr_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    assert(size > 0);
+    if( !s->CR1_UE || !s->CR1_RE )
+    {
+        return;
+    }
+    /* Only handle the received character if the module is enabled, */
+    if( s->CR1_UE && s->CR1_RE )
+    {
 
-    //assert(size > 0);
+        /* If there is already a character in the receive buffer, then set the overflow flag. */
+         if( s->SR_RXNE )
+        {
+            s->SR_ORE = 1<<SR_ORE_BIT;
+            s->sr_read_with_ore = false;
+            stm32_uart_update_irq(s);
+        }
 
-    ///* Only handle the received character if the module is enabled, */
-    //if( s->CR1_UE && s->CR1_RE )
-    //{
-    //    /* If there is already a character in the receive buffer, then set the overflow flag. */
-    //     if( s->SR_RXNE )
-    //    {
-    //        s->SR_ORE = 1<<SR_ORE_BIT;
-    //        s->sr_read_with_ore = false;
-    //        stm32_uart_update_irq(s);
-    //    }
+        /* Receive the character and mark the buffer as not empty. */
+        s->RDR_r = *buf;
+        s->SR_RXNE = 1<<SR_RXNE_BIT;
+        stm32_uart_update_irq(s);
+    } else {
+    }
 
-    //    /* Receive the character and mark the buffer as not empty. */
-    //    s->RDR_r = *buf;
-    //    s->SR_RXNE = 1<<SR_RXNE_BIT;
-    //    stm32_uart_update_irq(s);
-    //}
-
-    //if (s->CR3_r & CR3_r_DMAR_BIT)
-    //{
-    //  qemu_set_irq(*stm32_DMA1_irq, 0x00000010);
-    //  qemu_set_irq(*stm32_DMA1_irq, 0x00000000);
-    //} else {
-
-
-    ///* Indicate the module is receiving and start the delay. */
-    //s->receiving = true;
-
-    ///* Set timer in either case - main event loop must run again to
-    // * trigger next receive */
-    //curr_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    //timer_mod(s->rx_timer, curr_time + s->ns_per_char);
-    //}
+    if (s->CR3_r & CR3_r_DMAR_BIT)
+    {
+      qemu_set_irq(*stm32_DMA1_irq, 0x00000010);
+      qemu_set_irq(*stm32_DMA1_irq, 0x00000000);
+    } else {
+    /* Indicate the module is receiving and start the delay. */
+    s->receiving = true;
+    /* Set timer in either case - main event loop must run again to
+     * trigger next receive */
+    curr_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    timer_mod(s->rx_timer, curr_time + s->ns_per_char);
+    }
 }
 
 /* REGISTER IMPLEMENTATION */

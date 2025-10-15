@@ -74,4 +74,8 @@ bool waitEvent(void);
 
 int simuMain( int argc, char** argv );
 
+extern uint64_t simul_sysclk_frequency;
+
+uint64_t get_simul_sysclk_frequency(void);
+
 #endif

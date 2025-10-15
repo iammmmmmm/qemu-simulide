@@ -176,7 +176,7 @@ static void stm32_timer_tick(void *opaque) // overflow
 
     //static uint64_t lastTime=0;
     //uint64_t qemuTime_ns = qemu_clock_get_ns( QEMU_CLOCK_VIRTUAL ); // ns
-    //printf("%s overflow at %lu ns\n", stm32_periph_name(s->periph), qemuTime_ns - lastTime);
+    //printf("%s overflow at %llu ns\n", stm32_periph_name(s->periph), qemuTime_ns - lastTime);
     ////printf("%lu\n", qemuTime_ns - lastTime);
     //printf("%i\n", s->arr);
     //lastTime = qemuTime_ns;
@@ -204,7 +204,7 @@ static void stm32_timer_updt_period( Stm32Timer *s ) // Set overflow period
 {
     //s->period = s->arr+1;
     ptimer_transaction_begin( s->timer );
-    ptimer_set_limit( s->timer, s->arr, 1 );
+    ptimer_set_limit( s->timer, s->arr+1, 1 );
     ptimer_transaction_commit( s->timer );
 }
 

@@ -73,19 +73,19 @@ uint32_t stm32_uart_baud_rate(void *opaque);
 #define FLASH_SIZE 0x00020000
 #define RAM_SIZE 0x00005000
 /* Main SYSCLK frequency in Hz (24MHz) */
-#define SYSCLK_FRQ 24000000ULL
-
+//#define SYSCLK_FRQ 24000000ULL
+extern uint64_t get_simul_sysclk_frequency(void);
 static void stm32_f103c8_init( MachineState *machine )
 {
    Clock *sysclk;
 
-   //uint32_t freq = getFrequency();
+  uint64_t SYSCLK_FRQ = 24000000;//get_simul_sysclk_frequency();
 
    Stm32_F103c8_Mcu* s = (Stm32_F103c8_Mcu*)g_malloc0( sizeof(Stm32_F103c8_Mcu) );
 
    sysclk = clock_new( OBJECT(machine), "SYSCLK");
    clock_set_hz( sysclk, SYSCLK_FRQ );
-   stm32_init( FLASH_SIZE, RAM_SIZE, machine->kernel_filename, SYSCLK_FRQ/3, 32768, sysclk );
+   stm32_init( FLASH_SIZE, RAM_SIZE, machine->kernel_filename, SYSCLK_FRQ, 32768, sysclk );
 
    s->gpio_a = DEVICE( object_resolve_path("/machine/stm32/gpio[a]" , NULL) );
    s->gpio_b = DEVICE( object_resolve_path("/machine/stm32/gpio[b]" , NULL) );
@@ -127,12 +127,10 @@ static void stm32_f103c8_init( MachineState *machine )
    assert( s->adc1 );
    assert( s->adc2 );
 
-   /* Connect RS232 to UART 1 */
-   //stm32_uart_connect( (Stm32Uart *)s->uart1, serial_hd(0)/*, 0*/ );
 
-   /* These additional UARTs have not been tested yet... */
-   //stm32_uart_connect( (Stm32Uart *)s->uart2, serial_hd(1)/*, 0*/  );
-   //stm32_uart_connect( (Stm32Uart *)s->uart3, serial_hd(2)/*, 0*/  );
+   stm32_uart_connect( (Stm32Uart *)s->uart1, qemu_chr_find("c0") /*, 0*/ );
+   stm32_uart_connect( (Stm32Uart *)s->uart2, qemu_chr_find("c1")/*, 0*/  );
+   stm32_uart_connect( (Stm32Uart *)s->uart3, qemu_chr_find("c2")/*, 0*/  );
 
    DeviceState *i2c_master1 = DEVICE(s->i2c1);
    I2CBus *i2c_bus1 = I2C_BUS( qdev_get_child_bus(i2c_master1, "i2c") );
