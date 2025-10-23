@@ -73,13 +73,10 @@ uint32_t stm32_uart_baud_rate(void *opaque);
 #define FLASH_SIZE 0x00020000
 #define RAM_SIZE 0x00005000
 /* Main SYSCLK frequency in Hz (24MHz) */
-//#define SYSCLK_FRQ 24000000ULL
-extern uint64_t get_simul_sysclk_frequency(void);
+#define SYSCLK_FRQ 24000000ULL
 static void stm32_f103c8_init( MachineState *machine )
 {
    Clock *sysclk;
-
-  uint64_t SYSCLK_FRQ = 24000000;//get_simul_sysclk_frequency();
 
    Stm32_F103c8_Mcu* s = (Stm32_F103c8_Mcu*)g_malloc0( sizeof(Stm32_F103c8_Mcu) );
 
